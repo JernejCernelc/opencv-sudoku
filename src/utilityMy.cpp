@@ -21,16 +21,25 @@ using namespace ml;
 using namespace Sud;
 
 vector<Mat> preprocess(Mat image) {
-	Size size(WINDOW_WIDTH, WINDOW_HEIGHT);
+	//Size size(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	Mat thr = cropSudoku(image);
 
-	resize(thr, thr, size);
+	while (true) {
+		int tmp = waitKey(30);
+		if (tmp >= 0) {
+			break;
+		}
+		imshow("2", thr);
+	}
+	//resize(thr, thr, size);
 
 	vector<Mat> polja;
+	int blockW = round(thr.cols / 9);
+	int blockH = round(thr.rows / 9);
 	for (int i = 0; i < 9; i++) {
 		for (int j = 0; j < 9; j++) {
-			Rect roi(Point(j*BLOCK_WIDTH, i*BLOCK_HEIGHT), Point((j + 1)*BLOCK_WIDTH, (i + 1)*BLOCK_HEIGHT));
+			Rect roi(Point(j*blockW, i*blockH), Point((j + 1)*blockW, (i + 1)*blockH));
 			Mat izrez = thr(roi);
 			polja.push_back(izrez);
 		}
@@ -49,7 +58,8 @@ Mat cropSudoku(Mat image) {
 	Find contours
 	*//*-----------------------------------------------------------*/
 
-	threshold(image, thresh, 100, 255, THRESH_BINARY);
+	//adaptiveThreshold(image, thresh, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 5, 2);
+	threshold(image, thresh, 90, 255, THRESH_BINARY);
 	thresh = 255 - thresh;
 
 	int largest_area = 0;
@@ -66,9 +76,6 @@ Mat cropSudoku(Mat image) {
 			bounding_rect = boundingRect(contours[i]);
 		}
 	}
-
-	//findContours(thresh, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-
 
 	/*-----------------------------------------------------------*//*
 	If working Mat is tilting to side fix it with rotation
@@ -129,14 +136,6 @@ Mat cropSudoku(Mat image) {
 		thresh = thresh(roi2);
 	}
 
-	double dilation_size = 1;
-	double erosion_size = 1;
-	Mat elementDil = getStructuringElement(MORPH_RECT, Size(2 * dilation_size + 1, 2 * dilation_size + 1), Point(dilation_size, dilation_size));
-	Mat elementEro = getStructuringElement(MORPH_RECT, Size(2 * erosion_size + 1, 2 * erosion_size + 1), Point(erosion_size, erosion_size));
-
-	dilate(thresh, thresh, elementDil);
-	erode(thresh, thresh, elementEro);
-
 	/*while (true) {
 		int tmp = waitKey(30);
 		if (tmp >= 0) {
@@ -146,7 +145,7 @@ Mat cropSudoku(Mat image) {
 		imshow("1", thresh);
 	}*/
 
-	return thresh;
+	return thresh(Rect(Point(round(thresh.cols*0.01), round(thresh.rows*0.01)), Point(thresh.cols-round(thresh.cols*0.01), thresh.rows-round(thresh.rows*0.01))));
 }
 
 double angle(Point pt1, Point pt2, Point pt0) {
@@ -183,6 +182,32 @@ Mat cropDigit(Mat in) {
 	return out;
 }
 
+Mat removeEdges(Mat in) {
+	Mat out;
+	in.copyTo(out);
+	vector<vector<Point> > contours;
+	int largest_area = 0;
+	int largest_contour_index = 0;
+	Rect bounding_rect = Rect(Point(0, 0),Point(out.cols-1, out.rows-1));
+	
+	findContours(out, contours, RETR_CCOMP, CHAIN_APPROX_SIMPLE);
+
+	for (size_t i = 0; i < contours.size(); i++) {
+		double area = contourArea(contours[i]);
+		if (area > largest_area) {
+			largest_area = area;
+			largest_contour_index = i;
+			bounding_rect = boundingRect(contours[i]);
+		}
+	}
+
+	/*Mat tmp = Mat(image.rows, image.cols, CV_8UC3, Scalar(0, 0, 0));
+	rectangle(tmp, bounding_rect, Scalar(255, 0, 0), 1, 8, 0);
+	imshow("neki", tmp);*/
+
+	return out(bounding_rect);
+}
+
 Sudoku::Sudoku() {
 	//Init empty sudoku
 	solveTrigger = false;
@@ -206,25 +231,46 @@ void Sudoku::setSolution() {
 
 void Sudoku::ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier cascade) {
 	vector<Rect> digits;
+	int blockW = polja.back().cols;
+	int blockH = polja.back().rows;
 	for (int i = 8; i >= 0; i--) {
 		for (int j = 8; j >= 0; j--) {
 			Mat pre = polja.back();
 
 			digits.clear();
-			cascade.detectMultiScale(pre, digits, 1.05, 1, 0, Size(26, 26), Size(40, 40));
+			Mat detect;
+			resize(pre, detect, Size(56, 56));
+			cascade.detectMultiScale(detect, digits, 1.05, 1, 0, Size(26, 26), Size(40, 40));
 
 			float response = -1.0;
 			if (digits.size() == 1) {
+
 				Mat digit(28, 28, CV_8UC1, Scalar(0, 0, 0));
-				pre = pre(digits.at(0));
-				Size size(pre.cols / 1.38, pre.rows / 1.38);
-				resize(pre, pre, size);
-				Mat croped = cropDigit(pre);
+				detect = detect(Rect(Point(digits.at(0).tl().x, digits.at(0).tl().y), Point(digits.at(0).br().x, detect.rows-1)));
+
+				double dilation_size = 0.7;
+				double erosion_size = 0.7;
+				Mat elementDil = getStructuringElement(MORPH_RECT, Size(2 * dilation_size + 1, 2 * dilation_size + 1), Point(dilation_size, dilation_size));
+				Mat elementEro = getStructuringElement(MORPH_RECT, Size(2 * erosion_size + 1, 2 * erosion_size + 1), Point(erosion_size, erosion_size));
+				erode(detect, detect, elementEro);
+				dilate(detect, detect, elementDil);
+
+				Mat croped = removeEdges(detect);
+				Size size(croped.cols*20/croped.rows, 20);
+				resize(croped, croped, size);
 
 				int xCopy = 14 - (croped.cols / 2);
 				int yCopy = 14 - (croped.rows / 2);
 
 				croped.copyTo(digit(Rect(xCopy, yCopy, croped.cols, croped.rows)));
+
+				/*while (true) {
+					int tmp = waitKey(30);
+					if (tmp >= 0) {
+						break;
+					}
+					imshow("1", digit);
+				}*/
 
 				int img_area = 28 * 28;
 				Mat tmp(1, img_area, CV_32FC1);
@@ -235,21 +281,13 @@ void Sudoku::ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier 
 					}
 				}
 
-				response = svm->predict(tmp);
+				Mat norm;
+				normalize(tmp, norm, -1, 1, NORM_MINMAX, CV_32F);
+
+				response = svm->predict(norm);
 				sudoku.at<int>(i, j) = (int)response;
 
-				Mat neki;
-				normalize(digit, neki, -1, 1, NORM_MINMAX, CV_32F);
-
-				/*cout << "Digit recognized:" << response << endl;
-				while (true) {
-					int tmp = waitKey(30);
-					if (tmp >= 0) {
-						destroyAllWindows();
-						break;
-					}
-					imshow("1", neki);
-				}*/
+				//cout << "Digit recognized:" << response << endl;
 
 				tmp.release();
 				croped.release();
