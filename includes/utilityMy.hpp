@@ -39,7 +39,7 @@ namespace Sud {
 			bool solvable;
 			
 			Sudoku();
-			void ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier cascade);
+			void ConstructSudoku(Mat polje, Ptr<SVM> svm, CascadeClassifier cascade);
 			void setSolution();
 			
 			void drawSudokuPre();
@@ -58,7 +58,7 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param);
 void sudokuPostCall(int event, int x, int y, int flags, void* param);
 
 Mat removeEdges(Mat in);
-vector<Mat> preprocess(Mat image);
+Mat preprocess(Mat image);
 Mat cropDigit(Mat digit);
 Mat cropSudoku(Mat image) ;
 double angle(Point pt1, Point pt2, Point pt0);

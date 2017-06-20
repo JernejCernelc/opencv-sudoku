@@ -51,11 +51,11 @@ int main(int argc, char** argv) {
 		image = imread(argv[1], CV_LOAD_IMAGE_COLOR);
 	
 		cvtColor(image, gray, CV_BGR2GRAY);
-		vector<Mat> polja = preprocess(gray);
+		Mat polje = preprocess(gray);
 
 		Sudoku sudoku;
 		sudoku.Sudoku::Sudoku();
-		sudoku.ConstructSudoku(polja, svm, cascade);
+		sudoku.ConstructSudoku(polje, svm, cascade);
 		sudoku.setSolution();
 		sudoku.check();
 

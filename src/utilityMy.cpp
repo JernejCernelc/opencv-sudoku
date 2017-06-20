@@ -20,7 +20,7 @@ using namespace cv;
 using namespace ml;
 using namespace Sud;
 
-vector<Mat> preprocess(Mat image) {
+Mat preprocess(Mat image) {
 	//Size size(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	Mat thr = cropSudoku(image);
@@ -33,19 +33,7 @@ vector<Mat> preprocess(Mat image) {
 		imshow("prewiev", thr);
 	}
 	//resize(thr, thr, size);
-
-	vector<Mat> polja;
-	int blockW = round(thr.cols / 9);
-	int blockH = round(thr.rows / 9);
-	for (int i = 0; i < 9; i++) {
-		for (int j = 0; j < 9; j++) {
-			Rect roi(Point(j*blockW, i*blockH), Point((j + 1)*blockW, (i + 1)*blockH));
-			Mat izrez = thr(roi);
-			polja.push_back(izrez);
-		}
-	}
-
-	return polja;
+	return thr;
 }
 
 Mat cropSudoku(Mat image) {
@@ -313,75 +301,71 @@ bool Sudoku::numberAppears(int st, int x, int y) {
 	}
 }
 
-void Sudoku::ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier cascade) {
+void Sudoku::ConstructSudoku(Mat polje, Ptr<SVM> svm, CascadeClassifier cascade) {
 	vector<Rect> digits;
-	int blockW = polja.back().cols;
-	int blockH = polja.back().rows;
-	for (int i = 8; i >= 0; i--) {
-		for (int j = 8; j >= 0; j--) {
-			Mat pre = polja.back();
+	int poljeW = polje.cols;
+	int poljeH = polje.rows;
+	
+	digits.clear();
+	cascade.detectMultiScale(polje, digits, 1.05, 3, 0, Size(round(poljeW/24), round(poljeW / 26)), Size(round(poljeW / 12), round(poljeW / 14)));
 
-			digits.clear();
-			Mat detect;
-			resize(pre, detect, Size(56, 56));
-			cascade.detectMultiScale(detect, digits, 1.05, 1, 0, Size(26, 26), Size(40, 40));
+	for (Rect stevilo : digits) {
+		rectangle(polje, stevilo, Scalar(255, 255, 255), 1, 8, 0);
+		//Mat detect = polje(Rect(Point(stevilo.tl().x-round(poljeW / 40), stevilo.tl().y- round(poljeH / 40)), Point(stevilo.br().x+round(poljeW / 40), stevilo.br().y+round(poljeH/40))));
+		float response = -1.0;
+		Mat digit(28, 28, CV_8UC1, Scalar(0, 0, 0));
+		//detect = detect(Rect(Point(stevilo.tl().x, stevilo.tl().y), Point(stevilo.br().x, detect.rows-1)));
 
-			float response = -1.0;
-			if (digits.size() == 1) {
-
-				Mat digit(28, 28, CV_8UC1, Scalar(0, 0, 0));
-				detect = detect(Rect(Point(digits.at(0).tl().x, digits.at(0).tl().y), Point(digits.at(0).br().x, detect.rows-1)));
-
-				double dilation_size = 0.7;
-				double erosion_size = 0.7;
-				Mat elementDil = getStructuringElement(MORPH_RECT, Size(2 * dilation_size + 1, 2 * dilation_size + 1), Point(dilation_size, dilation_size));
-				Mat elementEro = getStructuringElement(MORPH_RECT, Size(2 * erosion_size + 1, 2 * erosion_size + 1), Point(erosion_size, erosion_size));
-				erode(detect, detect, elementEro);
-				dilate(detect, detect, elementDil);
-
-				Mat croped = removeEdges(detect);
-				Size size(croped.cols*20/croped.rows, 20);
-				resize(croped, croped, size);
-
-				int xCopy = 14 - (croped.cols / 2);
-				int yCopy = 14 - (croped.rows / 2);
-
-				croped.copyTo(digit(Rect(xCopy, yCopy, croped.cols, croped.rows)));
-
-				/*while (true) {
-					int tmp = waitKey(30);
-					if (tmp >= 0) {
-						break;
-					}
-					imshow("1", digit);
-				}*/
-
-				int img_area = 28 * 28;
-				Mat tmp(1, img_area, CV_32FC1);
-				int ii = 0;
-				for (int i = 0; i < digit.rows; i++) {
-					for (int j = 0; j < digit.cols; j++) {
-						tmp.at<float>(0, ii++) = (float)(digit.at<uchar>(i, j));
-					}
-				}
-
-				Mat norm;
-				normalize(tmp, norm, -1, 1, NORM_MINMAX, CV_32F);
-
-				response = svm->predict(norm);
-				sudoku.at<int>(i, j) = (int)response;
-
-				//cout << "Digit recognized:" << response << endl;
-
-				tmp.release();
-				croped.release();
-				digit.release();
+		while (true) {
+			int tmp = waitKey(30);
+			if (tmp >= 0) {
+				destroyAllWindows();
+				break;
 			}
-			else {
-				sudoku.at<int>(i, j) = 0;
-			}
-			polja.pop_back();
+			imshow("1", polje);
 		}
+
+		/*double dilation_size = 0.7;
+		double erosion_size = 0.7;
+		Mat elementDil = getStructuringElement(MORPH_RECT, Size(2 * dilation_size + 1, 2 * dilation_size + 1), Point(dilation_size, dilation_size));
+		Mat elementEro = getStructuringElement(MORPH_RECT, Size(2 * erosion_size + 1, 2 * erosion_size + 1), Point(erosion_size, erosion_size));
+		erode(detect, detect, elementEro);
+		dilate(detect, detect, elementDil);*/
+
+		/*Mat croped = removeEdges(detect);
+		Size size(croped.cols*20/croped.rows, 20);
+		resize(croped, croped, size);
+
+		
+
+		int xCopy = 14 - (croped.cols / 2);
+		int yCopy = 14 - (croped.rows / 2);
+
+		croped.copyTo(digit(Rect(xCopy, yCopy, croped.cols, croped.rows)));
+
+		int img_area = 28 * 28;
+		Mat tmp(1, img_area, CV_32FC1);
+		int ii = 0;
+		for (int i = 0; i < digit.rows; i++) {
+			for (int j = 0; j < digit.cols; j++) {
+				tmp.at<float>(0, ii++) = (float)(digit.at<uchar>(i, j));
+			}
+		}
+
+		Mat norm;
+		normalize(tmp, norm, -1, 1, NORM_MINMAX, CV_32F);
+
+		response = svm->predict(norm);
+		cout << response << endl;
+		//sudoku.at<int>(i, j) = (int)response;
+
+		//cout << "Digit recognized:" << response << endl;
+
+		tmp.release();
+		croped.release();
+		digit.release();
+		//else	sudoku.at<int>(i, j) = 0;
+		*/
 	}
 }
 
