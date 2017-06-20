@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 			return -1;
 		}
 
-		if (!(svm = Algorithm::load<SVM>("digit_recognize_cascadeAutoRBF.xml"))) {
+		if (!(svm = Algorithm::load<SVM>("digit_recognize_cascade.xml"))) {
 			cerr << "Could not load classifier digit_recognize_cascade.xml" << endl;
 			return -1;
 		}

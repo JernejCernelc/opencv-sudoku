@@ -21,19 +21,7 @@ using namespace ml;
 using namespace Sud;
 
 vector<Mat> preprocess(Mat image) {
-	//Size size(WINDOW_WIDTH, WINDOW_HEIGHT);
-
 	Mat thr = cropSudoku(image);
-
-	while (true) {
-		int tmp = waitKey(30);
-		if (tmp >= 0) {
-			break;
-		}
-		imshow("prewiev", thr);
-	}
-	//resize(thr, thr, size);
-
 	vector<Mat> polja;
 	int blockW = round(thr.cols / 9);
 	int blockH = round(thr.rows / 9);
@@ -77,6 +65,7 @@ Mat cropSudoku(Mat image) {
 		}
 	}
 
+
 	/*-----------------------------------------------------------*//*
 	If working Mat is tilting to side fix it with rotation
 	*//*-----------------------------------------------------------*/
@@ -103,6 +92,13 @@ Mat cropSudoku(Mat image) {
 			}
 		}
 
+		/*Mat tmp = Mat(thresh.rows, thresh.cols, CV_8UC3, Scalar(0, 0, 0));
+		rectangle(tmp, bounding_rect, Scalar(255, 255, 255), 1, 8, 0);
+		circle(tmp, Point(bounding_rect.tl().x, yLeve), 3, Scalar(255, 0, 0), 2, 8, 0);
+		circle(tmp, Point(bounding_rect.tl().x, bounding_rect.tl().y), 3, Scalar(0, 255, 0), 2, 8, 0);
+		circle(tmp, Point(xZgornje, bounding_rect.tl().y), 3, Scalar(0, 0, 255), 2, 8, 0);
+		imshow("neki", tmp);*/
+
 		double kot;
 		if (yDesne > yLeve) {
 			kot = -angle(Point(bounding_rect.tl().x, yLeve), Point(bounding_rect.tl().x, bounding_rect.tl().y), Point(xZgornje, bounding_rect.tl().y));
@@ -110,6 +106,8 @@ Mat cropSudoku(Mat image) {
 		else {
 			kot = angle(Point(bounding_rect.br().x, yDesne), Point(bounding_rect.br().x, bounding_rect.tl().y), Point(xZgornje, bounding_rect.tl().y));
 		}
+
+		//cout << kot << endl;
 
 		Rect roi(bounding_rect.tl(), bounding_rect.br());
 		thresh = thresh(roi);
@@ -490,8 +488,6 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 					sudoku->sudoku.at<int>(i, j) = tmp - 48;
 					ResetMat(sudoku->uncompatible);
 					sudoku->check();
-					cout << "solvable: " << sudoku->solvable << endl;
-					cout << sudoku->uncompatible << endl << endl;
 				}
 			}
 		}
@@ -513,8 +509,6 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 						sudoku->sudoku.at<int>(i, j) = 0;
 						ResetMat(sudoku->uncompatible);
 						sudoku->check();
-						cout << "solvable: " << sudoku->solvable << endl;
-						cout << sudoku->uncompatible << endl << endl;
 					}
 				}
 			}
