@@ -30,12 +30,13 @@ namespace Sud {
 			Mat sudoku;
 			Mat solvedSudoku;
 			Mat solvedSudokuDraw;
+			Mat uncompatible;
 			
 			Mat pre;
 			Mat post;
 			Mat clicked;
 			
-			bool solveTrigger;
+			bool solvable;
 			
 			Sudoku();
 			void ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier cascade);
@@ -43,6 +44,13 @@ namespace Sud {
 			
 			void drawSudokuPre();
 			void drawSudokuPost();
+			
+			void clear();
+			void check();
+			bool isInRow(int st, int x, int y);
+			bool isInCol(int st, int x, int y);
+			bool isInBox(int st, int x, int y, int xBox, int yBox);
+			bool numberAppears(int st, int x, int y);
 	};
 };
 
@@ -55,5 +63,6 @@ Mat cropDigit(Mat digit);
 Mat cropSudoku(Mat image) ;
 double angle(Point pt1, Point pt2, Point pt0);
 void ResetMat(Mat m);
+bool eq(int x, int y, int j, int i);
 
 #endif

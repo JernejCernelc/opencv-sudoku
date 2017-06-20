@@ -30,7 +30,7 @@ vector<Mat> preprocess(Mat image) {
 		if (tmp >= 0) {
 			break;
 		}
-		imshow("2", thr);
+		imshow("prewiev", thr);
 	}
 	//resize(thr, thr, size);
 
@@ -59,7 +59,7 @@ Mat cropSudoku(Mat image) {
 	*//*-----------------------------------------------------------*/
 
 	//adaptiveThreshold(image, thresh, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 5, 2);
-	threshold(image, thresh, 90, 255, THRESH_BINARY);
+	threshold(image, thresh, 100, 255, THRESH_BINARY);
 	thresh = 255 - thresh;
 
 	int largest_area = 0;
@@ -210,15 +210,16 @@ Mat removeEdges(Mat in) {
 
 Sudoku::Sudoku() {
 	//Init empty sudoku
-	solveTrigger = false;
 	sudoku = Mat(9, 9, CV_32S);
+	uncompatible = Mat(9, 9, CV_32S);
 
 	for (int i = 0; i < 9; i++) {
 		for (int j = 0; j < 9; j++) {
 			sudoku.at<int>(i, j) = 0;
+			uncompatible.at<int>(i, j) = 0;
 		}
 	}
-
+	solvable = false;
 	solvedSudokuDraw = sudoku.clone();
 
 	pre = Mat(WINDOW_WIDTH, WINDOW_HEIGHT, CV_8UC3, Scalar(255, 255, 255));
@@ -227,6 +228,89 @@ Sudoku::Sudoku() {
 
 void Sudoku::setSolution() {
 	solvedSudoku = sudoku.clone();
+}
+
+void Sudoku::clear() {
+	ResetMat(sudoku);
+	ResetMat(solvedSudoku);
+	ResetMat(solvedSudokuDraw);
+	ResetMat(uncompatible);
+	solvable = false;
+	drawSudokuPre();
+	drawSudokuPost();
+	imshow("sudokuPre", pre);
+	imshow("sudokuPost", post);
+}
+
+void Sudoku::check() {
+	bool vseOk = true;
+	for (int i = 0; i < 9; i++) {
+		for (int j = 0; j < 9; j++) {
+			if (sudoku.at<int>(i, j) != 0) {
+				if (numberAppears(sudoku.at<int>(i, j), j, i)) {
+					uncompatible.at<int>(i, j) = sudoku.at<int>(i, j);
+					vseOk = false;
+				}
+			}
+		}
+	}
+	if (vseOk) {
+		solvable = true;
+	}
+	else {
+		solvable = false;
+	}
+}
+
+bool Sudoku::isInRow(int st, int x, int y) {
+	bool returnValue = false;
+	for (int i = 0; i < 9; i++) {
+		if (i != x && sudoku.at<int>(y, i) == st) {
+			uncompatible.at<int>(y, i) = st;
+			returnValue = true;
+		}
+	}
+	return returnValue;
+}
+
+bool Sudoku::isInCol(int st, int x, int y) {
+	bool returnValue = false;
+	for (int i = 0; i < 9; i++) {
+		if (i != y && sudoku.at<int>(i, x) == st) {
+			uncompatible.at<int>(i, x) = st;
+			returnValue = true;
+		}
+	}
+	return returnValue;
+}
+
+bool Sudoku::isInBox(int st, int x, int y, int xBox, int yBox) {
+	bool returnValue = false;
+	for (int i = 0; i < 3; i++) {
+		for (int j = 0; j < 3; j++) {
+			if (!eq(x, y, xBox + j, yBox + i) && sudoku.at<int>(yBox + i, xBox + j) == st) {
+				uncompatible.at<int>(y, x) = st;
+				returnValue = true;
+			}
+		}
+	}
+	return returnValue;
+}
+
+bool eq(int x, int y, int j, int i) {
+	if (x == j && y == i) {
+		return true;
+	}
+	return false;
+}
+
+bool Sudoku::numberAppears(int st, int x, int y) {
+	if (isInRow(st, x, y) || isInCol(st, x, y) || isInBox(st, x, y, x - (x % 3), y - (y % 3))) {
+		return true;
+	}
+	else {
+		return false;
+	}
 }
 
 void Sudoku::ConstructSudoku(vector<Mat> polja, Ptr<SVM> svm, CascadeClassifier cascade) {
@@ -320,6 +404,10 @@ void Sudoku::drawSudokuPre() {
 				string s = to_string(sudoku.at<int>(i, j));
 				putText(pre, s, Point(10 + j * 56, 46 + i * 56), 1, 3.2, Scalar(0, 0, 0), 2, 8, false);
 			}
+			if (uncompatible.at<int>(i, j) != 0) {
+				Rect okvir = Rect(Point(j * 56 + 5, i * 56 + 5), Point((((j + 1) * 56) - 5), ((i + 1) * 56) - 5));
+				rectangle(pre, okvir, Scalar(0, 0, 255), 2, 8, 0);
+			}
 		}
 	}
 }
@@ -377,7 +465,7 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 				break;
 			}
 			else if ((tmp > 0 && tmp < 49) || tmp > 57) {
-				cout << "Enter number between 1 and 9." << endl;
+				cout << "Please enter number between 1 and 9." << endl;
 			}
 
 			
@@ -389,7 +477,7 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 				break;
 			}
 			else if ((tmp > 0 && tmp < 49) || tmp > 57) {
-				cout << "Enter number between 1 and 9." << endl;
+				cout << "Please enter number between 1 and 9." << endl;
 			}
 		}
 		
@@ -400,15 +488,10 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 				if (j * 56 <= x && (j + 1) * 56 >= x && i * 56 <= y && (i + 1) * 56 >= y) {
 					previous = sudoku->sudoku.at<int>(i, j);
 					sudoku->sudoku.at<int>(i, j) = tmp - 48;
-					if (sudoku->solveTrigger) {
-						if (solveSudoku(sudoku->sudoku, sudoku->solvedSudoku)) {
-							cout << "solution found" << endl;
-						}
-						else {
-							sudoku->sudoku.at<int>(i, j) = previous;
-							cout << "no sollution" << endl;
-						}
-					}
+					ResetMat(sudoku->uncompatible);
+					sudoku->check();
+					cout << "solvable: " << sudoku->solvable << endl;
+					cout << sudoku->uncompatible << endl << endl;
 				}
 			}
 		}
@@ -428,14 +511,10 @@ void sudokuPreCall(int event, int x, int y, int flags, void* param) {
 					previous = sudoku->sudoku.at<int>(i, j);
 					if (previous != 0) {
 						sudoku->sudoku.at<int>(i, j) = 0;
-						if (sudoku->solveTrigger) {
-							if (solveSudoku(sudoku->sudoku, sudoku->solvedSudoku)) {
-								cout << "solution found" << endl;
-							}
-							else {
-								cout << "no sollution" << endl;
-							}
-						}
+						ResetMat(sudoku->uncompatible);
+						sudoku->check();
+						cout << "solvable: " << sudoku->solvable << endl;
+						cout << sudoku->uncompatible << endl << endl;
 					}
 				}
 			}
@@ -469,16 +548,17 @@ void sudokuPostCall(int event, int x, int y, int flags, void* param) {
 	}
 	else if (event == EVENT_RBUTTONDOWN)
 	{
-		//cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
-		for (int i = 0; i < 9; i++) {
-			for (int j = 0; j < 9; j++) {
-				if (sudoku->sudoku.at<int>(i, j) == 0) {
-					sudoku->solvedSudokuDraw.at<int>(i, j) = sudoku->solvedSudoku.at<int>(i, j);
+		if (sudoku->solvable) {
+			for (int i = 0; i < 9; i++) {
+				for (int j = 0; j < 9; j++) {
+					if (sudoku->sudoku.at<int>(i, j) == 0) {
+						sudoku->solvedSudokuDraw.at<int>(i, j) = sudoku->solvedSudoku.at<int>(i, j);
+					}
 				}
 			}
+			sudoku->drawSudokuPost();
+			imshow("sudokuPost", sudoku->post);
 		}
-		sudoku->drawSudokuPost();
-		imshow("sudokuPost", sudoku->post);
 	}
 }
 

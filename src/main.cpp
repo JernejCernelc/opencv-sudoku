@@ -9,6 +9,7 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 using namespace std;
 using namespace cv;
@@ -56,6 +57,7 @@ int main(int argc, char** argv) {
 		sudoku.Sudoku::Sudoku();
 		sudoku.ConstructSudoku(polja, svm, cascade);
 		sudoku.setSolution();
+		sudoku.check();
 
 		namedWindow("sudokuPre", WINDOW_AUTOSIZE);
 		namedWindow("sudokuPost", WINDOW_AUTOSIZE);
@@ -75,15 +77,25 @@ int main(int argc, char** argv) {
 				break;
 			}
 			else if (key == 's') {
-				sudoku.solveTrigger = !sudoku.solveTrigger;
-				if (sudoku.solveTrigger) {
+				if (sudoku.solvable) {
+					clock_t t;
+					t = clock();
 					if (solveSudoku(sudoku.sudoku, sudoku.solvedSudoku)) {
-						cout << "solution found" << endl;
+						cout << "Solution found in ";
 					}
 					else {
-						cout << "no sollution" << endl;
+						cout << "No sollution for this input found in ";
 					}
+					t = clock() - t;
+					cout << t*1.0 / CLOCKS_PER_SEC << " seconds." << endl;
 				}
+				else {
+					cout << "This sudoku cannot be solved." << endl;
+				}
+			}
+			else if (key == 'c') {
+				sudoku.clear();
+				cout << "Sudoku cleared." << endl;
 			}
 		}
 
