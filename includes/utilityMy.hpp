@@ -59,7 +59,6 @@ void sudokuPostCall(int event, int x, int y, int flags, void* param);
 
 Mat removeEdges(Mat in);
 vector<Mat> preprocess(Mat image);
-Mat cropDigit(Mat digit);
 Mat cropSudoku(Mat image) ;
 double angle(Point pt1, Point pt2, Point pt0);
 void ResetMat(Mat m);

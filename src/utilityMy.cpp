@@ -162,24 +162,6 @@ double angle(Point pt1, Point pt2, Point pt0) {
 	}
 }
 
-Mat cropDigit(Mat in) {
-	Mat out;
-	in.copyTo(out);
-	vector<Point> nonBlackList;
-	nonBlackList.reserve(out.rows*out.cols);
-	for (int j = 0; j < out.rows; j++) {
-		for (int i = 0; i < out.cols; i++) {
-			if (in.at<uchar>(j, i) != 0) {
-				nonBlackList.push_back(Point(i, j));
-			}
-		}
-	}
-
-	Rect bb = boundingRect(nonBlackList);
-	out = out(bb);
-	return out;
-}
-
 Mat removeEdges(Mat in) {
 	Mat out;
 	in.copyTo(out);
